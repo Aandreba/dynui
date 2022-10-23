@@ -1,4 +1,4 @@
-BROWSER=safari
+BROWSER=firefox
 
 test:
 	wasm-pack test --$(BROWSER)

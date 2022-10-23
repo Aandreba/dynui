@@ -1,9 +1,11 @@
 use std::time::Duration;
-
 use js_sys::Function;
 use wasm_bindgen::{prelude::Closure, JsCast};
 use web_sys::{Window, Document, HtmlElement};
+
+pub mod component;
 pub mod cell;
+pub mod html;
 
 pub type Result<T> = ::core::result::Result<T, wasm_bindgen::JsValue>;
 
