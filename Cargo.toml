@@ -1,0 +1,18 @@
+[package]
+name = "dynui"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+js-sys = "0.3.60"
+wasm-bindgen = { version = "0.2.83" }
+web-sys = { version = "0.3.60", features = ["Window", "Document", "HtmlElement", "Text"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.13"
+console_error_panic_hook = { version = "0.1.6" }
+
+[workspace]
+members = ["proc"]
