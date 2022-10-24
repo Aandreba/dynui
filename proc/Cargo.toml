@@ -12,3 +12,6 @@ derive-syn-parse = "0.1.5"
 proc-macro2 = "1.0.47"
 quote = "1.0.21"
 syn = { version = "1.0.103", features = ["full", "extra-traits"] }
+
+[dev-dependencies]
+dynui = { path = "../" }

@@ -1,88 +1,108 @@
 use derive_syn_parse::Parse;
+use syn::{braced};
 use syn::{Token, Path, Pat, Expr, parse::ParseStream};
 use syn::parse::Parse;
 
-pub struct Elements (pub Vec<Element>);
+#[derive(Debug)]
+pub enum Html {
+    Element (Element),
+    Expr (Expr)
+}
+
+impl Parse for Html {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+       if input.peek(syn::token::Brace) {
+            let content; braced!(content in input);
+            return Expr::parse(&content).map(Self::Expr)
+       }
+
+       return Element::parse(input).map(Self::Element)
+    }
+}
+
+pub struct Elements (pub Vec<Html>);
 
 impl Parse for Elements {
     #[inline]
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut v = Vec::new();
         while !input.is_empty() {
-            v.push(Element::parse(input)?);
+            v.push(Html::parse(input)?);
         }
         return Ok(Self(v))
     }
 }
 
-#[derive(Parse)]
+#[derive(Debug, Parse)]
+pub struct ClosedElement {
+    shift: Token![/],
+    close: Token![>]
+}
+
+#[derive(Debug, Parse)]
 pub struct OpenElement {
-    pub left: Token![<],
+    close: Token![>],
+    #[call(parse_children)]
+    pub children: Vec<Html>,
+    left: Token![<],
+    shift: Token![/],
     pub path: Path,
-    #[call(parse_attrs)]
-    pub attrs: Vec<ElementAttribute>,
-    pub shift: Option<Token![/]>,
-    pub right: Token![>],
+    right: Token![>],
 }
 
-#[derive(Parse)]
-pub struct CloseElement {
-    pub left: Token![<],
-    pub shift: Token![/],
-    pub path: Path,
-    pub right: Token![>],
-}
-
-#[derive(Parse)]
+#[derive(Debug)]
 pub enum ElementEnd {
-    #[peek(Token![/], name = "Closed")]
-    Closed {
-        shift: Token![/],
-        close: Token![>]
-    },
+    Closed (ClosedElement),
+    Open (OpenElement)
+}
 
-    #[peek_with(true, name = "Open")]
-    Open {
-        #[call(parse_children)]
-        children: Vec<Element>,
-        close: CloseElement
+impl Parse for ElementEnd {
+    #[inline]
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.peek(Token![/]) {
+            return ClosedElement::parse(input).map(ElementEnd::Closed)
+        }
+        return OpenElement::parse(input).map(ElementEnd::Open)
     }
 }
 
-#[derive(Parse)]
+#[derive(Debug, Parse)]
 pub struct Element {
     pub left: Token![<],
+    #[call(Path::parse_mod_style)]
     pub path: Path,
     #[call(parse_attrs)]
     pub attrs: Vec<ElementAttribute>,
-
-
-    #[call(parse_children)]
-    pub children: Vec<Element>,
-    pub close: CloseElement
+    pub end: ElementEnd
 }
 
-#[derive(Parse)]
+#[derive(Debug, Parse)]
 pub struct ElementAttribute {
     pub pat: Pat,
     pub eq_token: Token![=],
+    #[brace]
+    pub brace_token: syn::token::Brace,
+    #[inside(brace_token)]
     pub expr: Expr
 }
 
 #[inline]
 fn parse_attrs(input: ParseStream) -> syn::Result<Vec<ElementAttribute>> {
     let mut attrs = Vec::new();
-    while !input.peek(Token![/]) && !input.peek(Token![>]) {
+    while !input.is_empty() && !input.peek(Token![/]) && !input.peek(Token![>]) {
         attrs.push(ElementAttribute::parse(input)?);
     }
+
     return Ok(attrs)
 }
 
 #[inline]
-fn parse_children(input: ParseStream) -> syn::Result<Vec<Element>> {
+fn parse_children(input: ParseStream) -> syn::Result<Vec<Html>> {
     let mut attrs = Vec::new();
-    while !(input.peek(Token![<])  && input.peek2(Token![/])){
-        attrs.push(Element::parse(input)?);
+    //panic!("{} --- {}", input.peek(Token![<]), input.peek(Token![/]));
+
+    while !input.is_empty() && !(input.peek(Token![<]) && input.peek2(Token![/])) {
+        attrs.push(Html::parse(input)?);
     }
     return Ok(attrs)
 }
