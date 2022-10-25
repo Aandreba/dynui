@@ -1,1 +1,1 @@
-flat_mod! { button }
+mmod! { button, list, r#async }

@@ -76,10 +76,12 @@ fn html_element (Element { path, attrs, end, .. }: Element) -> TokenStream {
                     };
 
                     quote! {
-                        dynui::web_sys::Element::set_attribute(
+                        dynui::web_sys::Element::set_attribute_node(
                             &r#__element__,
-                            stringify!(#ident),
-                            &dynui::into_string::IntoCowStr::into_cow_str(#expr)
+                            &dynui::create_attribute(
+                                stringify!(#ident),
+                                #expr
+                            )?
                         )?;
                     }
                 });
@@ -92,7 +94,7 @@ fn html_element (Element { path, attrs, end, .. }: Element) -> TokenStream {
 
         _ => {
             let props = attrs.into_iter()
-                .map(|ElementAttribute { pat, eq_token, expr, .. }| quote! { #pat: #expr });
+                .map(|ElementAttribute { pat, expr, .. }| quote! { #pat: #expr });
 
             quote! {
                 let mut r#__element__ = #path { #(#props),* };
@@ -108,7 +110,7 @@ fn html_element (Element { path, attrs, end, .. }: Element) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn component (attrs: proc_macro::TokenStream, items: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn component (_attrs: proc_macro::TokenStream, items: proc_macro::TokenStream) -> proc_macro::TokenStream {    
     let ItemFn { attrs, vis, sig, block } = parse_macro_input!(items as ItemFn);
     let Signature { constness, asyncness, unsafety, ident, generics, inputs, output, .. } = sig;
     let (impl_generics, ty_generics, where_generics) = generics.split_for_impl();
@@ -121,7 +123,7 @@ pub fn component (attrs: proc_macro::TokenStream, items: proc_macro::TokenStream
         Err(e) => return e.to_compile_error().into()
     };
 
-    let inputs = match inputs.iter().map(|arg| match arg {
+    let render_inputs = match inputs.iter().map(|arg| match arg {
         FnArg::Typed(ty @ PatType { attrs, pat, .. }) => Ok(quote_spanned! { ty.span() => #(#attrs)* #pat }),
         FnArg::Receiver(recv) => Err(syn::Error::new_spanned(recv, "only typed arguments are allowed as component props"))
     }).try_collect::<Vec<_>>() {
@@ -140,9 +142,18 @@ pub fn component (attrs: proc_macro::TokenStream, items: proc_macro::TokenStream
             #(#props),*
         }
 
+        impl #impl_generics #ident #ty_generics #where_generics {
+            #[inline]
+            #vis fn new (#inputs) -> Self {
+                return Self {
+                    #(#render_inputs),*
+                }
+            }
+        }
+
         impl #impl_generics #constness dynui::component::Component for #ident #ty_generics #where_generics {
             fn render (self) -> dynui::Result<dynui::web_sys::Node> {
-                let Self { #(#inputs),* } = self;
+                let Self { #(#render_inputs),* } = self;
                 return <#output>::render((move || #block)())
             }
         }
