@@ -4,39 +4,49 @@
 use html::{Element, Elements, ElementEnd, ElementAttribute, Html};
 use proc_macro2::{TokenStream};
 use quote::{quote, ToTokens, quote_spanned};
-use syn::{parse_macro_input, ItemFn, Signature, spanned::Spanned, Pat, FnArg, PatType};
+use syn::{parse_macro_input, ItemFn, Signature, spanned::Spanned, Pat, FnArg, PatType, punctuated::Punctuated, Token, Attribute};
 mod html;
 
 #[proc_macro]
 pub fn html (items: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut element = parse_macro_input!(items as Elements).0;
+    let mut element: Vec<Html> = parse_macro_input!(items as Elements).0;
 
     if element.len() == 1 {
-        return html_html(element.swap_remove(0)).into();
+        let (attrs, tokens) = html_html(element.swap_remove(0));
+        return quote! { #(#attrs)* #tokens }.into()
     }
 
-    let element = element.into_iter().map(html_html);
+    let element = element.into_iter().map(|html| {
+        let (attrs, tokens) = html_html(html);
+        return quote! {
+            #(#attrs)*
+            dynui::component::Node::append_child(
+                &__fragment__,
+                dynui::component::Component::render(#tokens)?
+            )?;
+        }
+    });
     
     quote! {
         (|| {
             let mut __fragment__ = dynui::web_sys::DocumentFragment::new()?;
-            #(
-                dynui::component::Node::append_child(
-                    &__fragment__,
-                    dynui::component::Component::render(#element)?
-                )?;
-            )*
-            return dynui::Result::Ok(__fragment__)
+            #(#element)*
+            return unsafe {
+                dynui::Result::Ok(dynui::component::Node::new(__fragment__))
+            }
         })()
     }.into()
 }
 
-fn html_html (html: Html) -> TokenStream {
+fn html_html (html: Html) -> (Vec<Attribute>, TokenStream) {
     return match html {
-        Html::Element(x) => html_element(x),
-        Html::Expr(x) => quote! {
+        Html::Element(attrs, x) => {
+            let tokens = html_element(x);
+            return (attrs, tokens)
+        },
+        Html::Expr(attrs, x) => (attrs, quote! {
             dynui::component::Component::render(#x)
-        }
+        })
     }
 }
 
@@ -56,8 +66,9 @@ fn html_element (Element { path, attrs, end, .. }: Element) -> TokenStream {
         }
 
         for child in close.children {
-            let value = html_html(child);
+            let (attrs, value) = html_html(child);
             children.push(quote! {
+                #(#attrs)*
                 dynui::component::Node::append_child(
                     &r#__element__,
                     dynui::component::Component::render(#value)?
@@ -69,13 +80,14 @@ fn html_element (Element { path, attrs, end, .. }: Element) -> TokenStream {
     let tokens = match path.get_ident() {
         Some(x) if x.to_string().starts_with(char::is_lowercase) => {
             let props = attrs.into_iter()
-                .map(|ElementAttribute { pat, expr, .. }| {
+                .map(|ElementAttribute { attrs, pat, expr, .. }| {
                     let ident = match pat {
                         Pat::Ident(pat) => pat.ident,
                         other => return syn::Error::new_spanned(other, "only identity patterns are allowed as primitive props").to_compile_error()
                     };
 
                     quote! {
+                        #(#attrs)*
                         dynui::component::Element::set_attribute(
                             &r#__element__,
                             stringify!(#ident),
@@ -92,7 +104,7 @@ fn html_element (Element { path, attrs, end, .. }: Element) -> TokenStream {
 
         _ => {
             let props = attrs.into_iter()
-                .map(|ElementAttribute { pat, expr, .. }| quote! { #pat: #expr });
+                .map(|ElementAttribute { attrs, pat, expr, .. }| quote! { #(#attrs)* #pat: #expr });
 
             quote! {
                 let mut r#__element__ = #path { #(#props),* };
@@ -113,21 +125,21 @@ pub fn component (_attrs: proc_macro::TokenStream, items: proc_macro::TokenStrea
     let Signature { constness, asyncness, unsafety, ident, generics, inputs, output, .. } = sig;
     let (impl_generics, ty_generics, where_generics) = generics.split_for_impl();
 
-    let props = match inputs.iter().map(|arg| match arg {
-        FnArg::Typed(pat_ty @ PatType { attrs, pat, colon_token, ty  }) => Ok(quote_spanned! { pat_ty.span() => #(#attrs)* #vis #pat #colon_token #ty }),
+    let inputs = match inputs.into_iter().map(|arg| match arg {
+        FnArg::Typed(pat) => Ok(pat),
         FnArg::Receiver(recv) => Err(syn::Error::new_spanned(recv, "only typed arguments are allowed as component props"))
-    }).try_collect::<Vec<_>>() {
+    }).try_collect::<Punctuated<_, Token![,]>>() {
         Ok(x) => x,
         Err(e) => return e.to_compile_error().into()
     };
 
-    let render_inputs = match inputs.iter().map(|arg| match arg {
-        FnArg::Typed(ty @ PatType { attrs, pat, .. }) => Ok(quote_spanned! { ty.span() => #(#attrs)* #pat }),
-        FnArg::Receiver(recv) => Err(syn::Error::new_spanned(recv, "only typed arguments are allowed as component props"))
-    }).try_collect::<Vec<_>>() {
-        Ok(x) => x,
-        Err(e) => return e.to_compile_error().into()
-    };
+    let props = inputs.iter()
+        .map(|pat_ty @ PatType { attrs, pat, colon_token, ty }| quote_spanned! { pat_ty.span() => #(#attrs)* #vis #pat #colon_token #ty })
+        .collect::<Vec<_>>();
+
+    let render_inputs = inputs.iter()
+        .map(|ty @ PatType { attrs, pat, .. }| quote_spanned! { ty.span() => #(#attrs)* #pat })
+        .collect::<Vec<_>>();
 
     let output = match output {
         out @ syn::ReturnType::Default => quote_spanned! { out.span() => dynui::component::Component },

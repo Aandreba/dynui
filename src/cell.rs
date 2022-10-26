@@ -1,5 +1,5 @@
 use std::{hint::unreachable_unchecked, ops::Deref, rc::Rc, cell::{UnsafeCell, RefCell, Ref}, fmt::Debug};
-use crate::{Result, component::{RefComponent, Node}, attr::RefAttribute, jsprintln, jseprintln};
+use crate::{Result, component::{RefComponent, Node}, attr::RefAttribute, jseprintln};
 
 /// An object that can be treated like a cell
 pub trait CellLike {
@@ -58,7 +58,7 @@ impl<T: CellLike> RefComponent for T where <T as CellLike>::Value: RefComponent 
 
         self.on_update(move |x| match RefComponent::render(x) {
             Ok(x) => match my_prev.parent_node() {
-                Some(_) => match my_prev.replace_child(&x.0, &my_prev) {
+                Some(parent) => match parent.replace_child(&x.0, &my_prev) {
                     Ok(_) => my_prev = x.0,
                     Err(e) => wasm_bindgen::throw_val(e)
                 },

@@ -1,22 +1,26 @@
 use derive_syn_parse::Parse;
-use syn::{braced};
+use syn::{braced, Attribute};
 use syn::{Token, Path, Pat, Expr, parse::ParseStream};
 use syn::parse::Parse;
 
 #[derive(Debug)]
 pub enum Html {
-    Element (Element),
-    Expr (Expr)
+    Element (Vec<Attribute>, Element),
+    Expr (Vec<Attribute>, Expr),
 }
 
 impl Parse for Html {
     fn parse(input: ParseStream) -> syn::Result<Self> {
        if input.peek(syn::token::Brace) {
+            let attrs = Attribute::parse_outer(input)?;
             let content; braced!(content in input);
-            return Expr::parse(&content).map(Self::Expr)
+            let tokens = Expr::parse(&content)?;
+            return Ok(Self::Expr(attrs, tokens))
        }
 
-       return Element::parse(input).map(Self::Element)
+       let attrs = Attribute::parse_outer(input)?;
+       let element = Element::parse(input)?;
+       return Ok(Self::Element(attrs, element))
     }
 }
 
@@ -78,6 +82,8 @@ pub struct Element {
 
 #[derive(Debug, Parse)]
 pub struct ElementAttribute {
+    #[call(Attribute::parse_outer)]
+    pub attrs: Vec<Attribute>,
     pub pat: Pat,
     pub eq_token: Token![=],
     #[brace]

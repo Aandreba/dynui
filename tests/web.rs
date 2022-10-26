@@ -90,6 +90,10 @@ fn future () -> Result<()> {
         <div>
             <Future fut={future} placeholder={html! { <span>{"Waiting"}</span> }} />
             <span>{&duration.debug()}</span>
+            #[cfg(debug_assertions)]
+            <span>{"Currently debbuging"}</span>
+            #[cfg(not(debug_assertions))]
+            <span>{"Currently not debbuging"}</span>
         </div>
     }?;
 
