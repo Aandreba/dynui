@@ -21,9 +21,9 @@ pub fn html (items: proc_macro::TokenStream) -> proc_macro::TokenStream {
         (|| {
             let mut __fragment__ = dynui::web_sys::DocumentFragment::new()?;
             #(
-                dynui::web_sys::Node::append_child(
+                dynui::component::Node::append_child(
                     &__fragment__,
-                    &dynui::component::Component::render(#element)?
+                    dynui::component::Component::render(#element)?
                 )?;
             )*
             return dynui::Result::Ok(__fragment__)
@@ -58,9 +58,9 @@ fn html_element (Element { path, attrs, end, .. }: Element) -> TokenStream {
         for child in close.children {
             let value = html_html(child);
             children.push(quote! {
-                dynui::web_sys::Node::append_child(
+                dynui::component::Node::append_child(
                     &r#__element__,
-                    &dynui::component::Component::render(#value)?
+                    dynui::component::Component::render(#value)?
                 )?;
             });
         }
@@ -76,18 +76,16 @@ fn html_element (Element { path, attrs, end, .. }: Element) -> TokenStream {
                     };
 
                     quote! {
-                        dynui::web_sys::Element::set_attribute_node(
+                        dynui::component::Element::set_attribute(
                             &r#__element__,
-                            &dynui::create_attribute(
-                                stringify!(#ident),
-                                #expr
-                            )?
+                            stringify!(#ident),
+                            #expr
                         )?;
                     }
                 });
 
             quote! {
-                let mut r#__element__ = dynui::context().document.create_element(stringify!(#path))?;
+                let mut r#__element__ = dynui::create_element(stringify!(#path))?;
                 #(#props)*
             }
         },
@@ -152,7 +150,7 @@ pub fn component (_attrs: proc_macro::TokenStream, items: proc_macro::TokenStrea
         }
 
         impl #impl_generics #constness dynui::component::Component for #ident #ty_generics #where_generics {
-            fn render (self) -> dynui::Result<dynui::web_sys::Node> {
+            fn render (self) -> dynui::Result<dynui::component::Node> {
                 let Self { #(#render_inputs),* } = self;
                 return <#output>::render((move || #block)())
             }

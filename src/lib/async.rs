@@ -1,22 +1,29 @@
 use std::time::Duration;
-
 use js_sys::{Promise, Function};
 use macros::{component};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::Node;
-use crate::cell::{Cell, MutableCell};
-use crate::component::Component;
-use crate::{dynui, Result, CONTEXT};
+use crate::component::{Component, Node};
+use crate::{dynui, Result, CONTEXT, jseprintln};
 
 #[component]
 pub fn Future<Fut: 'static + std::future::Future, P: Component> (fut: Fut, placeholder: P) -> Result<Node> where Fut::Output: Component {
-    let mut my_element: Cell<Node> = Cell::new(placeholder.render()?);
-    let element = my_element.render()?;
+    let element = placeholder.render()?;
+    let my_element = element.0.clone();
 
     wasm_bindgen_futures::spawn_local(async move {
         match fut.await.render() {
-            Ok(x) => my_element.set(x),
+            Ok(x) => match my_element.parent_node() {
+                Some(parent) => match parent.replace_child(&x.0, &my_element) {
+                    Ok(_) => {},
+                    Err(e) => wasm_bindgen::throw_val(e)
+                },
+                None => {
+                    #[cfg(debug_assertions)]
+                    jseprintln!("previous node doesn't have a parent")
+                }
+            },
+
             Err(e) => wasm_bindgen::throw_val(e)
         }
     });

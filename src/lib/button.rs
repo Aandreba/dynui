@@ -2,14 +2,14 @@ use macros::component;
 use macros::html;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::Closure;
-use web_sys::Element;
 use web_sys::EventTarget;
 use crate::Result;
 use crate::dynui;
+use crate::dynui::Element;
 
 #[component]
-pub fn Button<'a, F: 'static + FnMut()> (text: &'a str, onclick: F) -> Result<web_sys::Element> {
-    let button: Element = html! {
+pub fn Button<'a, F: 'static + FnMut()> (text: &'a str, onclick: F) -> Result<Element> {
+    let button = html! {
         <button>{text}</button>
     }?;
     

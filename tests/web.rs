@@ -15,14 +15,15 @@ wasm_bindgen_test_configure!(run_in_browser);
 #[wasm_bindgen_test]
 fn pass() -> Result<()> {
     let mut cell = Cell::new(1u32);
+    let display = cell.display();
 
     let html = html! {
         <div>
-            <span>{&cell.display()}</span>
+            <span>{&display}</span>
         </div>
     }?;
 
-    context().body.append_child(&html.render()?)?;
+    append_body(html)?;
     set_interval(Duration::from_secs(1), move || {
         cell.mutate(|x| x.add_assign(1));
     })?;
@@ -49,7 +50,7 @@ fn html () -> Result<()> {
     }?;
 
     let alpha = alpha.render()?;
-    context().body.append_child(&alpha)?;
+    append_body(alpha)?;
     Ok(())
 }
 
@@ -59,9 +60,9 @@ fn list () -> Result<()> {
     let mut cell = Cell::new("hello");
 
     let children = vec![
-        html! { <a href={"google.es"}>{&cell}</a> }?,
-        html! { <a href={"facebook.com"}>{"Facebook"}</a> }?,
-        html! { <a href={&cell}>{"YouTubve"}</a> }?
+        html! { <a href={"google.es"}>{&cell}</a> },
+        html! { <a href={"facebook.com"}>{"Facebook"}</a> },
+        html! { <a href={&cell}>{"YouTubve"}</a> }
     ];
 
     let alpha = html! {
@@ -71,7 +72,7 @@ fn list () -> Result<()> {
         </div>
     }?.render()?;
 
-    context().body.append_child(&alpha)?;
+    append_body(alpha)?;
     Ok(())
 }
 
@@ -84,12 +85,18 @@ fn future () -> Result<()> {
         return html! { <span>{"A second has passed!"}</span> }
     };
 
+    let mut duration = Cell::new(Duration::default());
     let alpha = html! {
         <div>
             <Future fut={future} placeholder={html! { <span>{"Waiting"}</span> }} />
+            <span>{&duration.debug()}</span>
         </div>
     }?;
 
-    context().body.append_child(&alpha)?;
+    set_interval(Duration::from_millis(1), move || {
+        duration.mutate(|x| x.add_assign(Duration::from_millis(1)))
+    })?;
+
+    append_body(alpha)?;
     Ok(())
 }
