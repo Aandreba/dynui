@@ -12,7 +12,7 @@ use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
-#[wasm_bindgen_test]
+/*#[wasm_bindgen_test]
 fn pass() -> Result<()> {
     let mut cell = Cell::new(1u32);
     let display = cell.display();
@@ -33,7 +33,7 @@ fn pass() -> Result<()> {
 
 #[wasm_bindgen_test]
 fn html () -> Result<()> {
-    use dynui::lib::button::Button;
+    use dynui::lib::input::Button;
 
     let value = SharedCell::new(0u128);
     let my_value = value.clone();
@@ -44,7 +44,7 @@ fn html () -> Result<()> {
             <span>{&text}</span>
             <Button 
                 text={"Click me!"}
-                onclick={move || my_value.mutate(|x| x.add_assign(1))} 
+                onclick={move |_| my_value.mutate(|x| x.add_assign(1))} 
             />
         </div>
     }?;
@@ -56,7 +56,7 @@ fn html () -> Result<()> {
 
 #[wasm_bindgen_test]
 fn list () -> Result<()> {
-    use dynui::lib::{button::Button, list::List};
+    use dynui::lib::{input::Button, list::List};
     let mut cell = Cell::new("hello");
 
     let children = vec![
@@ -68,7 +68,7 @@ fn list () -> Result<()> {
     let alpha = html! {
         <div>
             <List ordered={true} iter={children} />
-            <Button text={"Click me!"} onclick={move || cell.set("world")} />
+            <Button text={"Click me!"} onclick={move |_| cell.set("world")} />
         </div>
     }?.render()?;
 
@@ -102,5 +102,23 @@ fn future () -> Result<()> {
     })?;
 
     append_body(alpha)?;
+    Ok(())
+}*/
+
+#[wasm_bindgen_test]
+pub fn form () -> Result<()> {
+    use dynui::lib::input::*;
+
+    let name = Cell::<String>::default();
+    let surname = Cell::<String>::default();
+
+    let form = html! {
+        <form>
+            <Input ty={"text"} value={name} />
+            <Input ty={"text"} value={surname} />
+        </form>
+    }?;
+
+    append_body(form)?;
     Ok(())
 }

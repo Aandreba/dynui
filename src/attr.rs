@@ -1,14 +1,15 @@
 use std::{rc::Rc, sync::Arc};
-
 use crate::Result;
 
 /// Attribute that can be rendered with ownership
 pub trait Attribute {
+    /// Renders the value into the specified `attr`
     fn render (self, attr: &web_sys::Attr) -> Result<()>;
 }
 
 /// Attribute that can be rendered with a reference
 pub trait RefAttribute: MutAttribute {
+    /// Renders the value into the specified `attr`
     fn render (&self, attr: &web_sys::Attr) -> Result<()>;
 }
 
@@ -76,6 +77,7 @@ impl RefAttribute for Arc<str> {
 
 /// Attribute that can be rendered with mutable reference
 pub trait MutAttribute {
+    /// Renders the value into the specified `attr`
     fn render (&mut self, attr: &web_sys::Attr) -> Result<()>;
 }
 

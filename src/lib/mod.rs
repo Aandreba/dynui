@@ -1,1 +1,1 @@
-mmod! { button, list, r#async }
+mmod! { input, list, r#async }

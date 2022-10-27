@@ -7,10 +7,10 @@ edition = "2021"
 
 [dependencies]
 proc = { path = "proc" }
-into_string = "1.1.1"
+into_string = "1.2.1"
 js-sys = "0.3.60"
 wasm-bindgen = { version = "0.2.83" }
-web-sys = { version = "0.3.60", features = ["console", "Attr", "Window", "Document", "DocumentFragment", "HtmlElement", "Text", "HtmlCollection", "EventTarget"] }
+web-sys = { version = "0.3.60", features = ["console", "Attr", "Window", "Document", "DocumentFragment", "HtmlElement", "Text", "HtmlCollection", "HtmlInputElement", "Event", "EventTarget", "AddEventListenerOptions", "DomException"] }
 console_error_panic_hook = { version = "0.1.6" }
 cfg-if = "1.0.0"
 wasm-bindgen-futures = "0.4.33"

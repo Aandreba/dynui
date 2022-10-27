@@ -1,5 +1,7 @@
 use std::{ops::Deref};
-use web_sys::EventTarget;
+use js_sys::Function;
+use wasm_bindgen::{prelude::Closure, JsCast};
+use web_sys::{EventTarget, AddEventListenerOptions};
 use crate::{Result, dynui::Attribute, CONTEXT};
 
 #[derive(Debug)]
@@ -32,6 +34,20 @@ impl Node {
         let new = new.into();
         let v = self.0.replace_child(&new.0, &prev.0)?;
         return unsafe { Ok(Self::new(v)) }
+    }
+
+    // Currently leaks
+    #[inline]
+    pub fn add_listener<F: 'static + FnMut(web_sys::Event)> (&self, event: &str, f: F) -> Result<()> {
+        let listener = Closure::new(f).into_js_value().unchecked_into::<Function>();
+        return self.0.add_event_listener_with_callback(event, &listener);
+    }
+
+    #[inline]
+    pub fn add_once_listener<F: 'static + FnOnce(web_sys::Event)> (&self, event: &str, f: F) -> Result<()> {
+        let mut options = AddEventListenerOptions::new();
+        let listener = Closure::once_into_js(f).unchecked_into::<Function>();
+        return self.0.add_event_listener_with_callback_and_add_event_listener_options(event, &listener, options.once(true));
     }
 }
 

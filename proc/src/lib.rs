@@ -1,10 +1,12 @@
 #![feature(is_some_and)]
 #![feature(iterator_try_collect)]
 
+use std::ops::Deref;
+
 use html::{Element, Elements, ElementEnd, ElementAttribute, Html};
 use proc_macro2::{TokenStream};
 use quote::{quote, ToTokens, quote_spanned};
-use syn::{parse_macro_input, ItemFn, Signature, spanned::Spanned, Pat, FnArg, PatType, punctuated::Punctuated, Token, Attribute};
+use syn::{parse_macro_input, ItemFn, Signature, spanned::Spanned, Pat, FnArg, PatType, punctuated::Punctuated, Token, Attribute, PatIdent, ext::IdentExt};
 mod html;
 
 #[proc_macro]
@@ -82,7 +84,7 @@ fn html_element (Element { path, attrs, end, .. }: Element) -> TokenStream {
             let props = attrs.into_iter()
                 .map(|ElementAttribute { attrs, pat, expr, .. }| {
                     let ident = match pat {
-                        Pat::Ident(pat) => pat.ident,
+                        Pat::Ident(pat) => IdentExt::unraw(&pat.ident),
                         other => return syn::Error::new_spanned(other, "only identity patterns are allowed as primitive props").to_compile_error()
                     };
 
@@ -134,11 +136,29 @@ pub fn component (_attrs: proc_macro::TokenStream, items: proc_macro::TokenStrea
     };
 
     let props = inputs.iter()
-        .map(|pat_ty @ PatType { attrs, pat, colon_token, ty }| quote_spanned! { pat_ty.span() => #(#attrs)* #vis #pat #colon_token #ty })
-        .collect::<Vec<_>>();
+        .map(|pat_ty @ PatType { attrs, pat, colon_token, ty }| {
+            let ident = match pat.deref() {
+                Pat::Ident(pat_ty @ PatIdent { attrs, ident, .. }) => quote_spanned! { pat_ty.span() => #(#attrs)* #ident },
+                other => other.to_token_stream()
+            };
+
+            quote_spanned! { pat_ty.span() => #(#attrs)* #vis #ident #colon_token #ty }
+        }).collect::<Vec<_>>();
+
+    let def_inputs = inputs.iter()
+        .map(|pat_ty @ PatType { attrs, pat, colon_token, ty }| {
+            let ident = match pat.deref() {
+                Pat::Ident(pat_ty @ PatIdent { attrs, ident, .. }) => quote_spanned! { pat_ty.span() => #(#attrs)* #ident },
+                other => other.to_token_stream()
+            };
+
+            quote_spanned! { pat_ty.span() => #(#attrs)* #ident }
+        }).collect::<Vec<_>>();
 
     let render_inputs = inputs.iter()
-        .map(|ty @ PatType { attrs, pat, .. }| quote_spanned! { ty.span() => #(#attrs)* #pat })
+        .map(|ty @ PatType { attrs, pat, .. }| {
+            quote_spanned! { ty.span() => #(#attrs)* #pat }
+        })
         .collect::<Vec<_>>();
 
     let output = match output {
@@ -154,9 +174,10 @@ pub fn component (_attrs: proc_macro::TokenStream, items: proc_macro::TokenStrea
 
         impl #impl_generics #ident #ty_generics #where_generics {
             #[inline]
+            #[allow(unused_mut)]
             #vis fn new (#inputs) -> Self {
                 return Self {
-                    #(#render_inputs),*
+                    #(#def_inputs),*
                 }
             }
         }
